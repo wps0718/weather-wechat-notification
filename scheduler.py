@@ -75,8 +75,8 @@ class WeatherNotificationScheduler:
             logger.info("推送完成！")
 
             # !!! --- 请务必替换成你自己的GitHub Pages地址 --- !!!
-            github_username = "YOUR_GITHUB_USERNAME"  # <--- 替换
-            repo_name = "YOUR_REPO_NAME"              # <--- 替换
+            github_username = " wps0718"  # <--- 替换
+            repo_name = "weather-wechat-notification"              # <--- 替换
             html_url = f"https://{github_username}.github.io/{repo_name}/{html_output_path}"
             logger.info(f"详情页URL: {html_url}")
 
