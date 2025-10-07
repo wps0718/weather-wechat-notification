@@ -1,0 +1,78 @@
+# 指令书名称
+name: Daily Weather Push
+
+# === 指令一：什么时候开始工作？ ===
+on:
+  # 允许我手动命令你工作，方便我测试
+  workflow_dispatch:
+
+  # 每天定时工作
+  schedule:
+    # 这是定时器，时间是国际标准时间 (UTC)
+    # '30 23 * * *' 的意思是：在UTC时间的每天23点30分执行
+    # 北京时间比UTC时间早8小时，所以这正好是北京时间第二天的早上 7:30
+    - cron: '30 23 * * *'
+
+permissions:
+  contents: write
+
+# === 指令二：具体做什么？ ===
+jobs:
+  # 定义一个任务，叫“构建并推送”
+  build-and-push:
+    # 找一台最新的 Ubuntu 系统的电脑来干活
+    runs-on: ubuntu-latest
+
+    # 具体的工作步骤
+    steps:
+      # 第1步：把我的代码从GitHub仓库下载到这台新电脑上
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      # 第2步：安装Python环境
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9' # 指定用3.9版本的Python
+
+      # 第3步：按照“工具清单”(requirements.txt)，安装所有需要的库
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      
+      # 第4步：最关键的一步！从“保险箱”(Secrets)里取出密码，动态生成一个临时的 config.ini 文件
+      - name: Create config.ini from secrets
+        run: |
+          echo "[wechat]" >> config.ini
+          echo "app_id = ${{ secrets.app_id }}" >> config.ini
+          echo "app_secret = ${{ secrets.app_secret }}" >> config.ini
+          echo "template_id = ${{ secrets.template_id }}" >> config.ini
+          echo "" >> config.ini
+          echo "[weather_api]" >> config.ini
+          echo "key = ${{ secrets.key }}" >> config.ini
+          echo "location = ${{ secrets.location }}" >> config.ini
+          echo "url = https://devapi.qweather.com/v7/weather/now" >> config.ini
+          echo "url_forecast = https://devapi.qweather.com/v7/weather/3d" >> config.ini
+          echo "" >> config.ini
+          echo "[scheduler]" >> config.ini
+          echo "push_time = ${{ secrets.push_time }}" >> config.ini
+          echo "" >> config.ini
+          echo "[users]" >> config.ini
+          echo "user_list = ${{ secrets.user_list }}" >> config.ini
+
+      # 第5步：运行我的主程序，但只运行手动模式，因为定时是由你(GitHub Actions)控制的
+      - name: Run main script
+        run: python main.py --mode manual
+
+      # 第6步：程序运行完会生成一个新的 weather_report.html，现在把它上传回我的GitHub仓库
+      - name: Commit and push weather_report.html
+        run: |
+          # 先告诉Git你是谁
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          # 把新生成的html文件加进来
+          git add weather_report.html
+          # 提交这个改动。后面的 || true 是个小技巧，防止因为没有改动而出错
+          git commit -m "Automated weather report update" || true
+          # 推送回仓库
+          git push
+
