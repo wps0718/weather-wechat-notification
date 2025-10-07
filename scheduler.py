@@ -54,14 +54,27 @@ class WeatherNotificationScheduler:
                 logger.error("获取天气数据失败，无法继续发送通知。")
                 return
 
+            # --- 关键修改：将所有数据准备代码移到 if 判断之后 ---
+
+            # 2. 准备用于HTML和模板消息的数据
+            temp_full = message_builder.get_temperature_tips().split('\n')
+            cond_full = message_builder.get_weather_condition_tips().split('\n')
+            precip_full = message_builder.get_precipitation_tips().split('，')
+            uv_full = message_builder.get_uv_tips().split('(')
+
             html_data = {
                 "greeting": message_builder.get_greeting(),
                 "date": time.strftime("%Y年%m月%d日 %A"),
-                "temperature": message_builder.get_temperature_tips(),
-                "weather_condition": message_builder.get_weather_condition_tips(),
-                "wind": message_builder.get_wind_tips(),
-                "precipitation": message_builder.get_precipitation_tips(),
-                "uv": message_builder.get_uv_tips(),
+                "temperature_value": temp_full[0].replace("今日气温: ", ""),
+                "temperature_tip": temp_full[1] if len(temp_full) > 1 else "注意适当增减衣物。",
+                "weather_condition_value": message_builder.weather_client.get_weather_condition(),
+                "weather_condition_tip": "\n".join(cond_full),
+                "wind_value": message_builder.get_wind_tips().replace("今日风向风力: ", ""),
+                "wind_tip": "注意防风，关好门窗。",
+                "precipitation_value": precip_full[0],
+                "precipitation_tip": precip_full[1] if len(precip_full) > 1 else "天气状况良好。",
+                "uv_value": uv_full[0].replace("紫外线指数: ", ""),
+                "uv_tip": '(' + uv_full[1] if len(uv_full) > 1 else "无需特殊防护。",
                 "note": "愿你今天有个好心情，一切顺利哦！💖"
             }
 
@@ -75,8 +88,8 @@ class WeatherNotificationScheduler:
             logger.info("推送完成！")
 
             # !!! --- 请务必替换成你自己的GitHub Pages地址 --- !!!
-            github_username = "wps0718"  # <--- 替换
-            repo_name = "weather-wechat-notification"              # <--- 替换
+            github_username = "wps0718"
+            repo_name = "weather-wechat-notification"
             html_url = f"https://{github_username}.github.io/{repo_name}/{html_output_path}"
             logger.info(f"详情页URL: {html_url}")
 
@@ -85,20 +98,20 @@ class WeatherNotificationScheduler:
                 user_name = user.get("name", "亲爱的")
                 logger.info(f"为用户 {user_name} (open_id: {open_id}) 构建消息")
 
+                # --- 关键修改：使用新的数据结构来构建模板消息 ---
                 message_data = [
                     {"name": "greeting", "value": f"{user_name}，{html_data['greeting']}"},
                     {"name": "date", "value": html_data['date']},
-                    {"name": "temperature", "value": html_data['temperature'].split('\n')[0]},
-                    {"name": "weather_condition", "value": html_data['weather_condition'].split('\n')[0]},
-                    {"name": "wind", "value": html_data['wind']},
-                    {"name": "precipitation", "value": html_data['precipitation']},
-                    {"name": "uv", "value": html_data['uv']},
+                    # 模板消息通常比较简洁，我们只发送核心数据
+                    {"name": "temperature", "value": temp_full[0]},
+                    {"name": "weather_condition", "value": cond_full[0]},
+                    {"name": "wind", "value": html_data['wind_value']},
+                    {"name": "precipitation", "value": html_data['precipitation_value']},
+                    {"name": "uv", "value": html_data['uv_value']},
                     {"name": "note", "value": "点击查看今日天气详情与穿搭建议💖"}
                 ]
 
                 success = self.wechat_client.send_template_message(open_id, message_data, url=html_url)
-
-                # <--- 关键修改：移除了原来位置错误且多余的if判断 ---
 
                 if success:
                     logger.info(f"向用户 {user_name} 发送消息成功")
