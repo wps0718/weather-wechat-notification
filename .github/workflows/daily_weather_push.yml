@@ -22,6 +22,10 @@ jobs:
   build-and-push:
     # 找一台最新的 Ubuntu 系统的电脑来干活
     runs-on: ubuntu-latest
+    
+ # 在这里添加 env 块
+    env:
+      TZ: Asia/Shanghai # <--- 关键修改：设置整个 Job 的时区
 
     # 具体的工作步骤
     steps:
