@@ -3,7 +3,7 @@ from weather_client import WeatherClient
 from message_builder import MessageBuilder
 from wechat_client import WeChatClient
 from config import config
-from typing import List, Dict
+from typing import List, Dict, Any
 import logging
 import traceback
 import time
@@ -44,6 +44,35 @@ class WeatherNotificationScheduler:
         logger.info(f"共加载 {len(users)} 个用户")
         return users
 
+    def _get_weather_theme(self, weather_condition: str) -> str:
+        """根据天气状况决定页面主题"""
+        condition = weather_condition.lower()
+        if "晴" in condition: return "sunny"
+        if "雨" in condition: return "rainy"
+        if "雪" in condition: return "snowy"
+        if "阴" in condition or "多云" in condition: return "cloudy"
+        if "雾" in condition or "霾" in condition: return "foggy"
+        return "default"
+
+    def _generate_alerts(self, message_builder: MessageBuilder) -> List[str]:
+        """生成需要高亮提醒的关键信息列表"""
+        alerts = []
+        # 降水提醒
+        precip_str = message_builder.get_precipitation_tips()
+        if "带好雨具" in precip_str:
+            alerts.append(precip_str)
+        # 紫外线提醒
+        uv_index = self.weather_client.get_uv_index()
+        if uv_index is not None and uv_index >= 6:
+            alerts.append(f"紫外线强({uv_index}级)，请注意防晒")
+        # 温差提醒
+        temp_tips = message_builder.get_temperature_tips()
+        if "温差较大" in temp_tips:
+            alerts.append("昼夜温差较大，注意及时增减衣物")
+
+        return alerts
+
+
     def send_weather_notification(self) -> None:
         """发送天气通知给所有用户"""
         try:
@@ -54,21 +83,26 @@ class WeatherNotificationScheduler:
                 logger.error("获取天气数据失败，无法继续发送通知。")
                 return
 
-            # --- 关键修改：将所有数据准备代码移到 if 判断之后 ---
-
-            # 2. 准备用于HTML和模板消息的数据
+            # --- 数据准备逻辑优化 ---
+            weather_condition = self.weather_client.get_weather_condition()
             temp_full = message_builder.get_temperature_tips().split('\n')
             cond_full = message_builder.get_weather_condition_tips().split('\n')
             precip_full = message_builder.get_precipitation_tips().split('，')
             uv_full = message_builder.get_uv_tips().split('(')
 
+            # 1. 生成智能预警信息
+            alerts = self._generate_alerts(message_builder)
+
+            # 2. 准备用于HTML的数据字典 (结构更清晰)
             html_data = {
+                "theme": self._get_weather_theme(weather_condition),
+                "alerts": alerts,
                 "greeting": message_builder.get_greeting(),
                 "date": time.strftime("%Y年%m月%d日 %A"),
-                "temperature_value": temp_full[0].replace("今日气温: ", ""),
+                "temperature_value": self.weather_client.get_temperature_range(),
                 "temperature_tip": temp_full[1] if len(temp_full) > 1 else "注意适当增减衣物。",
-                "weather_condition_value": message_builder.weather_client.get_weather_condition(),
-                "weather_condition_tip": "\n".join(cond_full),
+                "weather_condition_value": weather_condition,
+                "weather_condition_tip": " ".join(cond_full),
                 "wind_value": message_builder.get_wind_tips().replace("今日风向风力: ", ""),
                 "wind_tip": "注意防风，关好门窗。",
                 "precipitation_value": precip_full[0],
@@ -87,7 +121,6 @@ class WeatherNotificationScheduler:
             os.system('git push')
             logger.info("推送完成！")
 
-            # !!! --- 请务必替换成你自己的GitHub Pages地址 --- !!!
             github_username = "wps0718"
             repo_name = "weather-wechat-notification"
             html_url = f"https://{github_username}.github.io/{repo_name}/{html_output_path}"
@@ -98,11 +131,9 @@ class WeatherNotificationScheduler:
                 user_name = user.get("name", "亲爱的")
                 logger.info(f"为用户 {user_name} (open_id: {open_id}) 构建消息")
 
-                # --- 关键修改：使用新的数据结构来构建模板消息 ---
                 message_data = [
                     {"name": "greeting", "value": f"{user_name}，{html_data['greeting']}"},
                     {"name": "date", "value": html_data['date']},
-                    # 模板消息通常比较简洁，我们只发送核心数据
                     {"name": "temperature", "value": temp_full[0]},
                     {"name": "weather_condition", "value": cond_full[0]},
                     {"name": "wind", "value": html_data['wind_value']},
