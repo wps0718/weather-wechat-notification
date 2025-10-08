@@ -173,7 +173,6 @@ def create_html_page(data: Dict[str, Any], output_path: str = "weather_report.ht
     try:
         # 使用 format 方法填充模板
         filled_html = html_template.format(
-            theme=data.get("theme", "default"),
             theme_color=theme_color,
             alerts_html=alerts_html,
             **data
