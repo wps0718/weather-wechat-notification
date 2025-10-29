@@ -48,12 +48,56 @@ def create_html_page(data: Dict[str, Any], output_path: str = "weather_report.ht
                 --theme-gradient-end: #66a6ff;
             }}
             /* --- 动态主题定义 --- */
-            .theme-sunny {{ --theme-primary: #ffc107; --theme-gradient-start: #ffd54f; --theme-gradient-end: #ffb74d; }}
-            .theme-rainy {{ --theme-primary: #17a2b8; --theme-gradient-start: #81d4fa; --theme-gradient-end: #4dd0e1; }}
-            .theme-cloudy {{ --theme-primary: #6c757d; --theme-gradient-start: #b0bec5; --theme-gradient-end: #90a4ae; }}
-            .theme-snowy {{ --theme-primary: #e0f7fa; --theme-gradient-start: #ffffff; --theme-gradient-end: #e0f2f1; --text-color: #263238; --secondary-text-color: #546e7a;}}
-            .theme-foggy {{ --theme-primary: #9e9e9e; --theme-gradient-start: #cfd8dc; --theme-gradient-end: #b0bec5; }}
-            .theme-default {{ --theme-primary: #007bff; --theme-gradient-start: #89f7fe; --theme-gradient-end: #66a6ff; }}
+            .theme-sunny {{ 
+                --theme-primary: #ff9800; 
+                --theme-gradient-start: #ffeb3b; 
+                --theme-gradient-end: #ff9800; 
+                --background-color: #fffde7;
+                --card-background: #ffffff;
+                --border-color: #ffe0b2;
+            }}
+            .theme-rainy {{ 
+                --theme-primary: #0277bd; 
+                --theme-gradient-start: #4fc3f7; 
+                --theme-gradient-end: #0288d1; 
+                --background-color: #e1f5fe;
+                --card-background: #ffffff;
+                --border-color: #b3e5fc;
+            }}
+            .theme-cloudy {{ 
+                --theme-primary: #546e7a; 
+                --theme-gradient-start: #90a4ae; 
+                --theme-gradient-end: #607d8b; 
+                --background-color: #eceff1;
+                --card-background: #ffffff;
+                --border-color: #cfd8dc;
+            }}
+            .theme-snowy {{ 
+                --theme-primary: #78909c; 
+                --theme-gradient-start: #eceff1; 
+                --theme-gradient-end: #b0bec5; 
+                --text-color: #263238; 
+                --secondary-text-color: #455a64;
+                --background-color: #f5f5f5;
+                --card-background: #ffffff;
+                --border-color: #e0e0e0;
+            }}
+            .theme-foggy {{ 
+                --theme-primary: #757575; 
+                --theme-gradient-start: #bdbdbd; 
+                --theme-gradient-end: #9e9e9e; 
+                --background-color: #f5f5f5;
+                --card-background: #ffffff;
+                --border-color: #e0e0e0;
+            }}
+            .theme-default {{ 
+                --theme-primary: #1976d2; 
+                --theme-gradient-start: #64b5f6; 
+                --theme-gradient-end: #1976d2; 
+                --background-color: #e3f2fd;
+                --card-background: #ffffff;
+                --border-color: #bbdefb;
+            }}
 
             @keyframes fadeIn {{ from {{ opacity: 0; transform: translateY(15px); }} to {{ opacity: 1; transform: translateY(0); }} }}
             body {{
