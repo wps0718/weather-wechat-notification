@@ -109,7 +109,7 @@ class WeatherNotificationScheduler:
                 "precipitation_tip": precip_full[1] if len(precip_full) > 1 else "天气状况良好。",
                 "uv_value": uv_full[0].replace("紫外线指数: ", ""),
                 "uv_tip": '(' + uv_full[1] if len(uv_full) > 1 else "无需特殊防护。",
-                "note": "愿你今天有个好心情，一切顺利哦！💖"
+                "note": message_builder.get_daily_note("仪姐")
             }
 
             html_output_path = "weather_report.html"

@@ -1,4 +1,5 @@
 from typing import Dict, Any, List
+import re
 
 
 def _generate_alerts_html(alerts: List[str]) -> str:
@@ -8,9 +9,9 @@ def _generate_alerts_html(alerts: List[str]) -> str:
 
     items_html = "".join([f"<li>{alert}</li>" for alert in alerts])
     return f"""
-    <div class="alerts-card">
+    <div class="alerts-card glass-card">
         <div class="alerts-header">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
             <span>今日特别提醒</span>
         </div>
         <ul>{items_html}</ul>
@@ -18,12 +19,52 @@ def _generate_alerts_html(alerts: List[str]) -> str:
     """
 
 
+def _get_weather_emoji(theme: str) -> str:
+    """根据天气主题返回对应的 header 大 emoji"""
+    emoji_map = {
+        "sunny": "☀️",
+        "rainy": "🌧️",
+        "cloudy": "☁️",
+        "snowy": "❄️",
+        "foggy": "🌫️",
+        "default": "🌤️",
+    }
+    return emoji_map.get(theme, "🌤️")
+
+
+def _get_condition_emoji(theme: str) -> str:
+    """根据天气主题返回天气状况小 emoji"""
+    return _get_weather_emoji(theme)
+
+
+def _get_uv_level_class(uv_value: str) -> str:
+    """根据紫外线值返回进度条 CSS 类名"""
+    match = re.search(r'(\d+)', str(uv_value))
+    if match:
+        try:
+            uv = int(match.group(1))
+            if uv <= 2:   return "uv-level-1"
+            if uv <= 5:   return "uv-level-2"
+            if uv <= 7:   return "uv-level-3"
+            if uv <= 10:  return "uv-level-4"
+            return "uv-level-5"
+        except ValueError:
+            pass
+    return "uv-level-1"
+
+
 def create_html_page(data: Dict[str, Any], output_path: str = "weather_report.html"):
     """
-    根据传入的天气数据字典，生成一个经过深度优化的、具备动态主题和智能预警的HTML页面。
+    根据传入的天气数据字典，生成毛玻璃（Glassmorphism）风格的天气报告HTML页面。
     """
-    # 动态生成预警模块的HTML
+    # 动态生成预警模块
     alerts_html = _generate_alerts_html(data.get("alerts", []))
+
+    # 衍生字段
+    theme = data.get("theme", "default")
+    data["header_emoji"] = _get_weather_emoji(theme)
+    data["condition_emoji"] = _get_condition_emoji(theme)
+    data["uv_level_class"] = _get_uv_level_class(data.get("uv_value", ""))
 
     html_template = """
     <!DOCTYPE html>
@@ -34,173 +75,423 @@ def create_html_page(data: Dict[str, Any], output_path: str = "weather_report.ht
         <meta name="theme-color" content="{theme_color}">
         <title>今日天气提醒</title>
         <style>
-            :root {{
-                --text-color: #333;
-                --secondary-text-color: #555;
-                --background-color: #f4f6f8;
-                --card-background: #ffffff;
-                --border-color: #e9ecef;
-                --shadow-color: rgba(0, 0, 0, 0.08);
+            * {{ margin: 0; padding: 0; box-sizing: border-box; }}
 
-                /* 主题色变量 */
+            :root {{
+                --text-color: #1a1a2e;
+                --secondary-text-color: #555;
+                --bg-color: #f4f6f8;
+                --glass-bg: rgba(255, 255, 255, 0.18);
+                --glass-border: rgba(255, 255, 255, 0.25);
+                --glass-shadow: 0 8px 32px rgba(31, 38, 135, 0.10);
+                --glass-radius: 20px;
+
                 --theme-primary: #007bff;
                 --theme-gradient-start: #89f7fe;
                 --theme-gradient-end: #66a6ff;
+                --theme-glass-tint: rgba(102, 166, 255, 0.06);
             }}
-            /* --- 动态主题定义 --- */
-            .theme-sunny {{ 
-                --theme-primary: #ff9800; 
-                --theme-gradient-start: #ffeb3b; 
-                --theme-gradient-end: #ff9800; 
-                --background-color: #fffde7;
-                --card-background: #ffffff;
-                --border-color: #ffe0b2;
+
+            /* --- 动态天气主题定义 --- */
+            .theme-sunny {{
+                --theme-primary: #ff9800;
+                --theme-gradient-start: #ffeb3b;
+                --theme-gradient-end: #ff9800;
+                --bg-color: #fff8e1;
+                --theme-glass-tint: rgba(255, 152, 0, 0.06);
             }}
-            .theme-rainy {{ 
-                --theme-primary: #0277bd; 
-                --theme-gradient-start: #4fc3f7; 
-                --theme-gradient-end: #0288d1; 
-                --background-color: #e1f5fe;
-                --card-background: #ffffff;
-                --border-color: #b3e5fc;
+            .theme-rainy {{
+                --theme-primary: #0277bd;
+                --theme-gradient-start: #4fc3f7;
+                --theme-gradient-end: #0288d1;
+                --bg-color: #e1f5fe;
+                --theme-glass-tint: rgba(2, 136, 209, 0.06);
             }}
-            .theme-cloudy {{ 
-                --theme-primary: #546e7a; 
-                --theme-gradient-start: #90a4ae; 
-                --theme-gradient-end: #607d8b; 
-                --background-color: #eceff1;
-                --card-background: #ffffff;
-                --border-color: #cfd8dc;
+            .theme-cloudy {{
+                --theme-primary: #546e7a;
+                --theme-gradient-start: #90a4ae;
+                --theme-gradient-end: #607d8b;
+                --bg-color: #eceff1;
+                --theme-glass-tint: rgba(96, 125, 139, 0.06);
             }}
-            .theme-snowy {{ 
-                --theme-primary: #78909c; 
-                --theme-gradient-start: #eceff1; 
-                --theme-gradient-end: #b0bec5; 
-                --text-color: #263238; 
+            .theme-snowy {{
+                --theme-primary: #78909c;
+                --theme-gradient-start: #eceff1;
+                --theme-gradient-end: #b0bec5;
+                --text-color: #263238;
                 --secondary-text-color: #455a64;
-                --background-color: #f5f5f5;
-                --card-background: #ffffff;
-                --border-color: #e0e0e0;
+                --bg-color: #f5f5f5;
+                --theme-glass-tint: rgba(176, 190, 197, 0.06);
             }}
-            .theme-foggy {{ 
-                --theme-primary: #757575; 
-                --theme-gradient-start: #bdbdbd; 
-                --theme-gradient-end: #9e9e9e; 
-                --background-color: #f5f5f5;
-                --card-background: #ffffff;
-                --border-color: #e0e0e0;
+            .theme-foggy {{
+                --theme-primary: #757575;
+                --theme-gradient-start: #bdbdbd;
+                --theme-gradient-end: #9e9e9e;
+                --bg-color: #f5f5f5;
+                --theme-glass-tint: rgba(158, 158, 158, 0.06);
             }}
-            .theme-default {{ 
-                --theme-primary: #1976d2; 
-                --theme-gradient-start: #64b5f6; 
-                --theme-gradient-end: #1976d2; 
-                --background-color: #e3f2fd;
-                --card-background: #ffffff;
-                --border-color: #bbdefb;
+            .theme-default {{
+                --theme-primary: #1976d2;
+                --theme-gradient-start: #64b5f6;
+                --theme-gradient-end: #1976d2;
+                --bg-color: #e3f2fd;
+                --theme-glass-tint: rgba(25, 118, 210, 0.06);
             }}
 
-            @keyframes fadeIn {{ from {{ opacity: 0; transform: translateY(15px); }} to {{ opacity: 1; transform: translateY(0); }} }}
+            /* --- Fallback 浏览器不支持 backdrop-filter 时的降级 --- */
+            @supports not ((backdrop-filter: blur(20px)) or (-webkit-backdrop-filter: blur(20px))) {{
+                .glass-card {{
+                    background: rgba(255, 255, 255, 0.88) !important;
+                    backdrop-filter: none !important;
+                    -webkit-backdrop-filter: none !important;
+                }}
+            }}
+
+            /* ===== 动画 ===== */
+            @keyframes fadeIn {{
+                from {{ opacity: 0; transform: translateY(20px); }}
+                to {{ opacity: 1; transform: translateY(0); }}
+            }}
+            @keyframes float {{
+                0%, 100% {{ transform: translateY(0); }}
+                50% {{ transform: translateY(-6px); }}
+            }}
+
+            /* ===== 全局基础样式 ===== */
             body {{
-                margin: 0;
-                padding: 20px;
-                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-                background-color: var(--background-color);
+                padding: 16px;
+                font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto,
+                             "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+                background-color: var(--bg-color);
                 color: var(--text-color);
-                line-height: 1.6;
+                line-height: 1.5;
                 -webkit-font-smoothing: antialiased;
+                min-height: 100vh;
+                overflow-x: hidden;
             }}
-            .container {{
-                max-width: 600px;
-                margin: 0 auto;
-                animation: fadeIn 0.8s ease-out;
-            }}
-            .header {{
-                background: linear-gradient(120deg, var(--theme-gradient-start) 0%, var(--theme-gradient-end) 100%);
-                color: white;
-                padding: 30px 25px;
-                border-radius: 20px;
-                box-shadow: 0 8px 30px var(--shadow-color);
-                text-align: center;
-                margin-bottom: 20px;
-            }}
-            .header h1 {{ margin: 0; font-size: 24px; font-weight: 600; text-shadow: 1px 1px 2px rgba(0,0,0,0.1); }}
-            .header p {{ margin: 8px 0 0; font-size: 16px; opacity: 0.9; }}
 
-            /* --- 智能预警模块样式 --- */
-            .alerts-card {{
-                background-color: var(--card-background);
-                border-left: 5px solid var(--theme-primary);
-                border-radius: 12px;
-                padding: 15px 20px;
-                margin-bottom: 20px;
-                box-shadow: 0 4px 15px var(--shadow-color);
+            .container {{
+                max-width: 420px;
+                margin: 0 auto;
+                animation: fadeIn 0.6s ease-out;
             }}
-            .alerts-header {{ display: flex; align-items: center; font-size: 16px; font-weight: 600; color: var(--theme-primary); }}
-            .alerts-header svg {{ margin-right: 10px; }}
-            .alerts-card ul {{ padding-left: 20px; margin: 10px 0 0; font-size: 14px; color: var(--secondary-text-color); }}
-            .alerts-card li {{ margin-bottom: 5px; }}
+
+            /* ===== Glass Card 基类 ===== */
+            .glass-card {{
+                background: var(--glass-bg);
+                backdrop-filter: blur(20px);
+                -webkit-backdrop-filter: blur(20px);
+                border: 1px solid var(--glass-border);
+                border-radius: var(--glass-radius);
+                box-shadow: var(--glass-shadow);
+            }}
+
+            /* ===== Header 区域 ===== */
+            .header {{
+                position: relative;
+                background: linear-gradient(135deg, var(--theme-gradient-start) 0%, var(--theme-gradient-end) 100%);
+                color: white;
+                padding: 32px 24px 28px;
+                border-radius: 24px;
+                text-align: center;
+                margin-bottom: 16px;
+                overflow: hidden;
+                isolation: isolate;
+            }}
+            .header::before {{
+                content: '';
+                position: absolute;
+                top: -40%;
+                right: -20%;
+                width: 200px;
+                height: 200px;
+                border-radius: 50%;
+                background: rgba(255, 255, 255, 0.10);
+                z-index: 0;
+            }}
+            .header::after {{
+                content: '';
+                position: absolute;
+                bottom: -35%;
+                left: -15%;
+                width: 160px;
+                height: 160px;
+                border-radius: 50%;
+                background: rgba(255, 255, 255, 0.07);
+                z-index: 0;
+            }}
+            .header-content {{
+                position: relative;
+                z-index: 1;
+            }}
+            .header .weather-emoji {{
+                font-size: 40px;
+                display: block;
+                margin-bottom: 10px;
+                animation: float 4s ease-in-out infinite;
+                filter: drop-shadow(0 4px 8px rgba(0,0,0,0.10));
+            }}
+            .header h1 {{
+                margin: 0;
+                font-size: 20px;
+                font-weight: 600;
+                letter-spacing: 0.5px;
+                text-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+            }}
+            .header .date {{
+                margin: 8px 0 0;
+                font-size: 13px;
+                opacity: 0.80;
+                font-weight: 400;
+                letter-spacing: 0.3px;
+            }}
+
+            /* ===== 预警卡片 ===== */
+            .alerts-card {{
+                padding: 14px 18px;
+                margin-bottom: 16px;
+                border-left: 4px solid var(--theme-primary);
+            }}
+            .alerts-header {{
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                font-size: 15px;
+                font-weight: 600;
+                color: var(--theme-primary);
+            }}
+            .alerts-header svg {{
+                width: 18px;
+                height: 18px;
+                flex-shrink: 0;
+            }}
+            .alerts-card ul {{
+                padding-left: 26px;
+                margin: 8px 0 0;
+                font-size: 13px;
+                color: var(--secondary-text-color);
+                list-style-type: disc;
+            }}
+            .alerts-card li {{
+                margin-bottom: 4px;
+                line-height: 1.6;
+            }}
             .alerts-card li:last-child {{ margin-bottom: 0; }}
 
-            .content-card {{
-                background-color: var(--card-background);
-                border-radius: 20px;
-                box-shadow: 0 4px 15px var(--shadow-color);
+            /* ===== 主天气信息卡片 ===== */
+            .main-card {{
+                padding: 32px 20px 28px;
+                text-align: center;
+                margin-bottom: 16px;
+                background: linear-gradient(160deg, var(--glass-bg), rgba(255, 255, 255, 0.06));
+            }}
+            .main-card .temperature {{
+                font-size: 56px;
+                font-weight: 700;
+                color: var(--text-color);
+                line-height: 1;
+                letter-spacing: -1px;
+            }}
+            .main-card .condition {{
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 6px;
+                font-size: 18px;
+                font-weight: 500;
+                color: var(--secondary-text-color);
+                margin-top: 10px;
+            }}
+            .main-card .condition-icon {{
+                font-size: 24px;
+            }}
+            .main-card .condition-tip {{
+                font-size: 13px;
+                color: var(--secondary-text-color);
+                margin-top: 14px;
+                max-width: 85%;
+                margin-left: auto;
+                margin-right: auto;
+                opacity: 0.75;
+                line-height: 1.7;
+            }}
+
+            /* ===== 详情网格（2×2） ===== */
+            .detail-grid {{
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 12px;
+                margin-bottom: 16px;
+            }}
+            .detail-card {{
+                padding: 20px 14px 18px;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                text-align: center;
+                gap: 6px;
+                background: var(--glass-bg);
+                backdrop-filter: blur(20px);
+                -webkit-backdrop-filter: blur(20px);
+                border: 1px solid var(--glass-border);
+                border-radius: 18px;
+                box-shadow: var(--glass-shadow);
+                min-height: 110px;
+                justify-content: center;
+            }}
+            .detail-card .detail-icon {{
+                font-size: 24px;
+                line-height: 1;
+            }}
+            .detail-card .detail-label {{
+                font-weight: 500;
+                color: var(--theme-primary);
+                font-size: 12px;
+                letter-spacing: 0.5px;
+                opacity: 0.75;
+            }}
+            .detail-card .detail-value {{
+                font-weight: 600;
+                font-size: 16px;
+                color: var(--text-color);
+                line-height: 1.4;
+            }}
+            .detail-card .detail-sub {{
+                font-size: 12px;
+                color: var(--secondary-text-color);
+                opacity: 0.7;
+            }}
+
+            /* --- 紫外线进度条 --- */
+            .uv-bar-wrapper {{
+                width: 100%;
+                max-width: 110px;
+                height: 4px;
+                background: rgba(0, 0, 0, 0.06);
+                border-radius: 4px;
+                margin-top: 4px;
                 overflow: hidden;
             }}
-            .main-info {{
-                text-align: center;
-                padding: 25px;
-                border-bottom: 1px solid var(--border-color);
+            .uv-bar-fill {{
+                height: 100%;
+                border-radius: 4px;
+                transition: width 0.8s ease;
             }}
-            .main-info .temperature {{ font-size: 48px; font-weight: 700; color: var(--text-color); line-height: 1; }}
-            .main-info .condition {{ font-size: 18px; color: var(--secondary-text-color); margin-top: 8px; }}
-            .main-info .condition-tip {{ font-size: 14px; color: var(--secondary-text-color); margin-top: 12px; max-width: 80%; margin-left: auto; margin-right: auto; }}
+            .uv-level-1 {{ background: linear-gradient(90deg, #4caf50, #8bc34a); width: 20%; }}
+            .uv-level-2 {{ background: linear-gradient(90deg, #8bc34a, #ffeb3b); width: 40%; }}
+            .uv-level-3 {{ background: linear-gradient(90deg, #ffeb3b, #ff9800); width: 60%; }}
+            .uv-level-4 {{ background: linear-gradient(90deg, #ff9800, #f44336); width: 80%; }}
+            .uv-level-5 {{ background: linear-gradient(90deg, #f44336, #d32f2f); width: 100%; }}
 
-            .details-grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background-color: var(--border-color); }}
-            .weather-item {{ background-color: var(--card-background); padding: 18px; display: flex; flex-direction: column; align-items: center; text-align: center; }}
-            .weather-item .label {{ font-weight: 500; color: var(--secondary-text-color); font-size: 14px; margin-bottom: 8px; }}
-            .weather-item .value {{ font-weight: 600; font-size: 16px; color: var(--text-color); }}
-            .weather-item .tip {{ display: none; /* Tips are now in main sections */ }}
-            .footer {{ text-align: center; padding: 30px 20px; font-size: 14px; color: #aaa; }}
+            /* ===== Footer 页脚 ===== */
+            .footer-card {{
+                padding: 20px;
+                text-align: center;
+                margin-bottom: 16px;
+            }}
+            .footer-card p {{
+                font-size: 14px;
+                color: var(--secondary-text-color);
+                line-height: 1.7;
+            }}
+            .footer-card .footer-icon {{
+                display: inline-block;
+                animation: float 3s ease-in-out infinite;
+            }}
+
+            /* ===== 装饰性背景光晕 ===== */
+            .bg-decoration {{
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                pointer-events: none;
+                z-index: -1;
+                overflow: hidden;
+            }}
+            .bg-decoration .orb {{
+                position: absolute;
+                border-radius: 50%;
+                opacity: 0.12;
+                filter: blur(60px);
+            }}
+            .bg-decoration .orb-1 {{
+                top: -8%;
+                right: -8%;
+                width: 250px;
+                height: 250px;
+                background: var(--theme-gradient-start);
+            }}
+            .bg-decoration .orb-2 {{
+                bottom: -8%;
+                left: -8%;
+                width: 200px;
+                height: 200px;
+                background: var(--theme-gradient-end);
+            }}
         </style>
     </head>
     <body class="theme-{theme}">
+        <!-- 背景装饰光晕 -->
+        <div class="bg-decoration">
+            <div class="orb orb-1"></div>
+            <div class="orb orb-2"></div>
+        </div>
+
         <div class="container">
+            <!-- 头部问候 -->
             <div class="header">
-                <h1>{greeting}</h1>
-                <p>{date}</p>
+                <div class="header-content">
+                    <span class="weather-emoji">{header_emoji}</span>
+                    <h1>{greeting}</h1>
+                    <p class="date">{date}</p>
+                </div>
             </div>
 
+            <!-- 智能预警（如有） -->
             {alerts_html}
 
-            <div class="content-card">
-                <div class="main-info">
-                    <div class="temperature">{temperature_value}</div>
-                    <div class="condition">{weather_condition_value}</div>
-                    <p class="condition-tip">{weather_condition_tip}</p>
+            <!-- 主天气卡片 -->
+            <div class="main-card glass-card">
+                <div class="temperature">{temperature_value}</div>
+                <div class="condition">
+                    <span class="condition-icon">{condition_emoji}</span>
+                    <span>{weather_condition_value}</span>
                 </div>
-                <div class="details-grid">
-                    <div class="weather-item">
-                        <span class="label">🌬️ 风力风向</span>
-                        <span class="value">{wind_value}</span>
+                <p class="condition-tip">{weather_condition_tip}</p>
+            </div>
+
+            <!-- 详情网格 -->
+            <div class="detail-grid">
+                <div class="detail-card">
+                    <span class="detail-icon">🌬️</span>
+                    <span class="detail-label">风力风向</span>
+                    <span class="detail-value">{wind_value}</span>
+                </div>
+                <div class="detail-card">
+                    <span class="detail-icon">💧</span>
+                    <span class="detail-label">降水情况</span>
+                    <span class="detail-value">{precipitation_value}</span>
+                </div>
+                <div class="detail-card">
+                    <span class="detail-icon">☀️</span>
+                    <span class="detail-label">紫外线指数</span>
+                    <span class="detail-value">{uv_value}</span>
+                    <div class="uv-bar-wrapper">
+                        <div class="uv-bar-fill {uv_level_class}"></div>
                     </div>
-                    <div class="weather-item">
-                        <span class="label">💧 降水情况</span>
-                        <span class="value">{precipitation_value}</span>
-                    </div>
-                    <div class="weather-item">
-                        <span class="label">☀️ 紫外线</span>
-                        <span class="value">{uv_value}</span>
-                    </div>
-                    <div class="weather-item">
-                        <span class="label">🌡️ 体感提示</span>
-                        <span class="value">{temperature_tip}</span>
-                    </div>
+                </div>
+                <div class="detail-card">
+                    <span class="detail-icon">🌡️</span>
+                    <span class="detail-label">体感提示</span>
+                    <span class="detail-value">{temperature_tip}</span>
                 </div>
             </div>
 
-            <div class="footer">
-                <p>{note}</p>
+            <!-- 页脚寄语 -->
+            <div class="footer-card glass-card">
+                <p><span class="footer-icon">💖</span> {note}</p>
             </div>
         </div>
     </body>
@@ -215,16 +506,14 @@ def create_html_page(data: Dict[str, Any], output_path: str = "weather_report.ht
     theme_color = theme_colors.get(data.get("theme", "default"))
 
     try:
-        # 使用 format 方法填充模板
         filled_html = html_template.format(
             theme_color=theme_color,
             alerts_html=alerts_html,
             **data
         )
-        # 写入文件
         with open(output_path, "w", encoding="utf-8") as f:
             f.write(filled_html)
-        print(f"成功生成优化版HTML页面: {output_path}")
+        print(f"成功生成毛玻璃风格HTML页面: {output_path}")
     except KeyError as e:
         print(f"生成HTML失败：数据字典中缺少键 {e}。")
     except Exception as e:
